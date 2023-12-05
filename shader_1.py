@@ -1,11 +1,20 @@
 # Ported from GLSL code https://www.shadertoy.com/view/mtyGWy
 
-import taichi as ti
+import taichi as ti # pip install taichi
 
 ti.init(arch=ti.gpu)  # Initialize Taichi with GPU (if available)
 
-width, height = 800, 800
+width, height = 1728, 984
 pixels = ti.Vector.field(4, dtype=float, shape=(width, height))
+
+speed = 0.01
+complexity = 4
+scale = 2 # bigger number = zoomed out
+fragment = 1.5 #bigger number = smaller pieces 
+repeat = 4
+smallCircleCenter = 0.5
+bigCircleCenter = {'x': 0.5, 'y': 0.5}
+glow = 0.005
 
 @ti.func
 def fract(x):
@@ -23,17 +32,17 @@ def palette(t):
 def paint(t: float):
     for i, j in pixels:
         finalColor = ti.Vector([0.0, 0.0, 0.0])
-        uv = ti.Vector([i / width - 0.5, j / height - 0.5]) * 2.0
+        uv = ti.Vector([i / width - bigCircleCenter['x'], j / height - bigCircleCenter['y']]) * scale
         uv.x *= width / height
         uv0 = uv # keep the big circle
 
-        for p in range(4): # loop for small circles
-            uv = fract(uv * 1.5) - 0.5 # small circles
+        for p in range(complexity): # loop for small circles
+            uv = fract(uv * fragment) - smallCircleCenter # small circles
             d = uv.norm() * ti.exp(-uv0.norm())  # big circle
             color = palette(uv0.norm() + p * 0.4 + t * 0.2)  # color gradient + time shift
-            d = ti.sin(d * 8 + t) / 8  # sin wave repetition
+            d = ti.sin(d * repeat + t) / repeat  # sin wave repetition
             d = ti.abs(d)  # negative numbers are black, this makes the inside bright
-            d = ti.pow(0.01 / d, 1.2) # brightness
+            d = ti.pow(glow / d, 1.2) # glow / brightness
 
             finalColor += color * d
 
@@ -52,4 +61,4 @@ while gui.running:
     paint(iTime)
     gui.set_image(pixels)
     gui.show()
-    iTime += 0.02
+    iTime += speed
